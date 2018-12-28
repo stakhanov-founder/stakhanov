@@ -1,5 +1,7 @@
 package com.github.stakhanov_founder.stakhanov.slack.eventreceiver;
 
+import java.util.function.Consumer;
+
 import io.dropwizard.Application;
 import io.dropwizard.Configuration;
 import io.dropwizard.configuration.EnvironmentVariableSubstitutor;
@@ -9,6 +11,12 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 
 public class SlackEventReceiverApplication extends Application<Configuration> {
+
+    private final Consumer<String> eventConsumer;
+
+    public SlackEventReceiverApplication(Consumer<String> eventConsumer) {
+        this.eventConsumer = eventConsumer;
+    }
 
     @Override
     public String getName() {
@@ -25,6 +33,6 @@ public class SlackEventReceiverApplication extends Application<Configuration> {
 
     @Override
     public void run(Configuration configuration, Environment environment) {
-        environment.jersey().register(new SlackEventReceiverResource());
+        environment.jersey().register(new SlackEventReceiverResource(eventConsumer));
     }
 }

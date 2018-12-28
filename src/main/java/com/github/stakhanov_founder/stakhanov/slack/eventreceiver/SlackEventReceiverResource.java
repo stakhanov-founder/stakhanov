@@ -1,6 +1,7 @@
 package com.github.stakhanov_founder.stakhanov.slack.eventreceiver;
 
 import java.io.IOException;
+import java.util.function.Consumer;
 
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -17,6 +18,12 @@ import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.urlverificatio
 @Produces(MediaType.APPLICATION_JSON)
 public class SlackEventReceiverResource {
 
+    private final Consumer<String> eventConsumer;
+
+    public SlackEventReceiverResource(Consumer<String> eventConsumer) {
+        this.eventConsumer = eventConsumer;
+    }
+
 	@POST
 	public Object handlePost(String rawPayload) throws JsonParseException, JsonMappingException, IOException {
 		SlackEventPayload payload = new ObjectMapper().readValue(rawPayload, SlackEventPayload.class);
@@ -24,6 +31,7 @@ public class SlackEventReceiverResource {
 			return handleUrlVerification((SlackEventReceiverSubscriptionChallengePayload)payload);
 		}
 		else {
+            eventConsumer.accept(rawPayload);
 			return true;
 		}
 	}
