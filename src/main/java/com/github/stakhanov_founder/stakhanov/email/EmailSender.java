@@ -1,5 +1,6 @@
 package com.github.stakhanov_founder.stakhanov.email;
 
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.util.function.Supplier;
 
@@ -13,34 +14,37 @@ import org.masukomi.aspirin.delivery.DeliveryManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.github.stakhanov_founder.stakhanov.model.EmailToSend;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
 
 public class EmailSender extends Thread {
 
     private static final Logger logger = LoggerFactory.getLogger(EmailSender.class);
 
-    private final Supplier<EmailToSend> emailQueue;
+    private final Supplier<SlackStandardEvent> emailQueue;
     private final DeliveryManager aspirinDeliveryManager;
     private final EmailSenderHelper helper;
 
-    public EmailSender(Supplier<EmailToSend> emailQueue, String domain) throws NoSuchFieldException, IllegalAccessException {
+    public EmailSender(Supplier<SlackStandardEvent> emailQueue, String userEmailAddress, String botEmailAddress)
+            throws NoSuchFieldException, IllegalAccessException {
         this.emailQueue = emailQueue;
 
         Field deliveryManagerField = AspirinInternal.class.getDeclaredField("deliveryManager");
         deliveryManagerField.setAccessible(true);
         aspirinDeliveryManager = (DeliveryManager)deliveryManagerField.get(null);
 
-        helper = new EmailSenderHelper(domain);
+        helper = new EmailSenderHelper(userEmailAddress, botEmailAddress);
     }
 
     @Override
     public void run() {
         while (true) {
-            EmailToSend emailToSend = emailQueue.get();
+            SlackStandardEvent slackEvent = emailQueue.get();
             try {
-                if (emailToSend != null) {
+                if (slackEvent != null) {
                     MimeMessage message = AspirinInternal.createNewMimeMessage();
-                    helper.setupMimeMessageToSend(message, emailToSend);
+                    helper.setupMimeMessageToSend(message, slackEvent);
                     Aspirin.add(message);
                     synchronized (aspirinDeliveryManager) {
                         aspirinDeliveryManager.notifyAll();
@@ -48,10 +52,14 @@ public class EmailSender extends Thread {
                 } else {
                     Thread.sleep(100);
                 }
-            } catch (AddressException ex) {
+            } catch (AddressException | UnsupportedEncodingException ex) {
                 logger.error("Wrong email address to send to : " + ex.getMessage());
             } catch (MessagingException ex) {
-                logger.error("Could not send email. Email content : " + emailToSend);
+                try {
+                    logger.error("Could not send email. Slack event : " + new ObjectMapper().writeValueAsString(slackEvent));
+                } catch (JsonProcessingException e) {
+                    logger.error("Could not send email. Slack event : " + slackEvent);
+                }
             } catch (InterruptedException ex) {
                 break;
             }

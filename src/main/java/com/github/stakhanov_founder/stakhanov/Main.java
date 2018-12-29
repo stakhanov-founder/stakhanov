@@ -9,8 +9,10 @@ import javax.mail.internet.InternetAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.stakhanov_founder.stakhanov.email.EmailSender;
-import com.github.stakhanov_founder.stakhanov.model.EmailToSend;
+import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
+import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventPayload;
 import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventReceiverApplication;
 
 public class Main {
@@ -27,27 +29,26 @@ public class Main {
             logger.error("Wrong email address: " + userEmailAddress + " or " + botEmailAddress);
             System.exit(1);
         }
-        String domain = System.getenv("DOMAIN");
-        if (domain == null) {
-            domain = "stackanov-production.herokuapp.com";
-        }
 
         Queue<String> inboxFromTeamSlack = new LinkedList<>();
-        Queue<EmailToSend> outboxToPersonalEmail = new LinkedList<>();
+        Queue<SlackStandardEvent> outboxToPersonalEmail = new LinkedList<>();
 
         new SlackEventReceiverApplication(inboxFromTeamSlack::add).run("server",
                 "com/github/stakhanov_founder/stakhanov/slack/eventreceiver/configuration.yml");
-        new EmailSender(outboxToPersonalEmail::poll, domain)
+        new EmailSender(outboxToPersonalEmail::poll, userEmailAddress, botEmailAddress)
             .start();
 
         while (true) {
             if (!inboxFromTeamSlack.isEmpty()) {
-                outboxToPersonalEmail.add(
-                        new EmailToSend(
-                                userEmailAddress,
-                                botEmailAddress,
-                                "New message received from Slack",
-                                inboxFromTeamSlack.remove()));
+                String rawEvent = inboxFromTeamSlack.remove();
+                SlackEventPayload eventPayload = new ObjectMapper().readValue(
+                        rawEvent,
+                        SlackEventPayload.class);
+                if (eventPayload instanceof SlackStandardEvent) {
+                    outboxToPersonalEmail.add((SlackStandardEvent)eventPayload);
+                } else {
+                    logger.error("A non standard slack event reached the main loop: " + rawEvent);
+                }
             } else {
                 Thread.sleep(500);
             }
