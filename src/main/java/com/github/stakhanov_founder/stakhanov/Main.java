@@ -12,8 +12,11 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.stakhanov_founder.stakhanov.email.EmailSender;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
+import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackUserDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventPayload;
 import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventReceiverApplication;
+
+import allbegray.slack.SlackClientFactory;
 
 public class Main {
 
@@ -29,13 +32,22 @@ public class Main {
             logger.error("Wrong email address: " + userEmailAddress + " or " + botEmailAddress);
             System.exit(1);
         }
+        String slackToken = System.getenv("SLACK_TOKEN");
+        if (slackToken == null) {
+            logger.error("Please set SLACK_TOKEN environment variable");
+            System.exit(1);
+        }
 
         Queue<String> inboxFromTeamSlack = new LinkedList<>();
         Queue<SlackStandardEvent> outboxToPersonalEmail = new LinkedList<>();
 
         new SlackEventReceiverApplication(inboxFromTeamSlack::add).run("server",
                 "com/github/stakhanov_founder/stakhanov/slack/eventreceiver/configuration.yml");
-        new EmailSender(outboxToPersonalEmail::poll, userEmailAddress, botEmailAddress)
+        new EmailSender(
+                outboxToPersonalEmail::poll,
+                userEmailAddress,
+                botEmailAddress,
+                new CachedSlackUserDataProvider(SlackClientFactory.createWebApiClient(slackToken)))
             .start();
 
         while (true) {

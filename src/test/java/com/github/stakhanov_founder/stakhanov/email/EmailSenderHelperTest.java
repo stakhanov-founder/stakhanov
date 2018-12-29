@@ -16,14 +16,30 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
+import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SlackUserDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventPayload;
 
+import allbegray.slack.type.Profile;
+import allbegray.slack.type.User;
+
 public class EmailSenderHelperTest {
+
+    private SlackUserDataProvider slackUserDataProvider = userId -> {
+        User user = new User();
+        user.setId("abcdef");
+        user.setName("john.doe");
+        Profile profile = new Profile();
+        user.setProfile(profile);
+        profile.setFirst_name("John");
+        profile.setLast_name("Doe");
+        profile.setReal_name("John W. Doe");
+        return user;
+    };
 
     @Test
     public void testEmailSenderHelper_simpleMessage_returnCorrectValue()
             throws JsonParseException, JsonMappingException, IOException, MessagingException {
-        EmailSenderHelper helper = new EmailSenderHelper("recipient@user.com", "bot@stakhanov.com");
+        EmailSenderHelper helper = new EmailSenderHelper("recipient@user.com", "bot@stakhanov.com", slackUserDataProvider);
         SlackStandardEvent input = (SlackStandardEvent)new ObjectMapper().readValue(
                 "{"
                 + "\"token\":\"mytoken\","
@@ -50,7 +66,7 @@ public class EmailSenderHelperTest {
                 },
                 new Object[] {
                     new Address[] {new InternetAddress("recipient@user.com")},
-                    new Address[] {new InternetAddress("bot+person.unknown_name.abcdef@stakhanov.com", "Slack user abcdef")},
+                    new Address[] {new InternetAddress("bot+person.john.doe.abcdef@stakhanov.com", "John W. Doe")},
                     "this is my text",
                     "this is my text"
                 });
@@ -59,7 +75,7 @@ public class EmailSenderHelperTest {
     @Test
     public void testEmailSenderHelper_longMessage_returnCorrectValue()
             throws JsonParseException, JsonMappingException, IOException, MessagingException {
-        EmailSenderHelper helper = new EmailSenderHelper("recipient@user.com", "bot@stakhanov.com");
+        EmailSenderHelper helper = new EmailSenderHelper("recipient@user.com", "bot@stakhanov.com", slackUserDataProvider);
         SlackStandardEvent input = (SlackStandardEvent)new ObjectMapper().readValue(
                 "{"
                 + "\"token\":\"mytoken\","
@@ -86,7 +102,7 @@ public class EmailSenderHelperTest {
                 },
                 new Object[] {
                     new Address[] {new InternetAddress("recipient@user.com")},
-                    new Address[] {new InternetAddress("bot+person.unknown_name.abcdef@stakhanov.com", "Slack user abcdef")},
+                    new Address[] {new InternetAddress("bot+person.john.doe.abcdef@stakhanov.com", "John W. Doe")},
                     "this is my long text. I don't know exactly what to say, I wi...",
                     "this is my long text. I don't know exactly what to say, I wish it could be more interesting"
                 });
@@ -95,7 +111,7 @@ public class EmailSenderHelperTest {
     @Test
     public void testEmailSenderHelper_unsupportedEventType_returnCorrectValue()
             throws JsonParseException, JsonMappingException, IOException, MessagingException {
-        EmailSenderHelper helper = new EmailSenderHelper("recipient@user.com", "bot@stakhanov.com");
+        EmailSenderHelper helper = new EmailSenderHelper("recipient@user.com", "bot@stakhanov.com", slackUserDataProvider);
         SlackStandardEvent input = (SlackStandardEvent)new ObjectMapper().readValue(
                 "{"
                 + "\"token\":\"mytoken\","

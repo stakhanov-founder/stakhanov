@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
+import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SlackUserDataProvider;
 
 public class EmailSender extends Thread {
 
@@ -26,7 +27,8 @@ public class EmailSender extends Thread {
     private final DeliveryManager aspirinDeliveryManager;
     private final EmailSenderHelper helper;
 
-    public EmailSender(Supplier<SlackStandardEvent> emailQueue, String userEmailAddress, String botEmailAddress)
+    public EmailSender(Supplier<SlackStandardEvent> emailQueue, String userEmailAddress, String botEmailAddress,
+            SlackUserDataProvider slackUserDataProvider)
             throws NoSuchFieldException, IllegalAccessException {
         this.emailQueue = emailQueue;
 
@@ -34,7 +36,7 @@ public class EmailSender extends Thread {
         deliveryManagerField.setAccessible(true);
         aspirinDeliveryManager = (DeliveryManager)deliveryManagerField.get(null);
 
-        helper = new EmailSenderHelper(userEmailAddress, botEmailAddress);
+        helper = new EmailSenderHelper(userEmailAddress, botEmailAddress, slackUserDataProvider);
     }
 
     @Override
