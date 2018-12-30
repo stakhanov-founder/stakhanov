@@ -1,6 +1,11 @@
 package com.github.stakhanov_founder.stakhanov.email;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.mail.Message;
 import javax.mail.MessagingException;
@@ -12,6 +17,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.stakhanov_founder.stakhanov.model.SlackEventData;
 import com.github.stakhanov_founder.stakhanov.model.SlackMessage;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
+import com.github.stakhanov_founder.stakhanov.slack.MentionLocation;
+import com.github.stakhanov_founder.stakhanov.slack.SlackHelper;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SlackUserDataProvider;
 import com.google.common.base.Strings;
 
@@ -44,13 +51,15 @@ class EmailSenderHelper {
                     senderDisplayName = sender.getName();
                 }
             }
+            List<MentionLocation> directMentions = new SlackHelper().extractDirectMentions(message.text);
+            String textWithResolvedMentions = resolveDirectMentions(message.text, directMentions);
             if (message.subType == null) {
                 emptyMimeMessage.setFrom(new InternetAddress(
                         addLabelsToEmailAddress(botEmailAddress, "person", sender.getName(), message.senderId),
                         senderDisplayName));
                 emptyMimeMessage.addRecipient(Message.RecipientType.TO, new InternetAddress(userEmailAddress));
-                emptyMimeMessage.setSubject(generateEmailSubjectFromSlackMessage(message.text));
-                emptyMimeMessage.setText(message.text);
+                emptyMimeMessage.setSubject(generateEmailSubjectFromSlackMessage(textWithResolvedMentions));
+                emptyMimeMessage.setText(textWithResolvedMentions);
             } else {
                 switch (message.subType) {
                 default:
@@ -90,5 +99,60 @@ class EmailSenderHelper {
         } catch (JsonProcessingException e) {
             emptyMimeMessage.setText("There was a problem displaying its content");
         }
+    }
+
+    private String resolveDirectMentions(String slackMessageText, List<MentionLocation> directMentions) {
+        if (directMentions == null || directMentions.isEmpty()) {
+            return slackMessageText;
+        }
+        Set<String> firstNamesAppearingTwice = findFirstNamesAppearingTwice(directMentions);
+        StringBuilder stringBuilder = new StringBuilder();
+        int endOfLastMention = 0;
+        for (MentionLocation mentionLocation : directMentions) {
+            stringBuilder.append(slackMessageText.substring(endOfLastMention, mentionLocation.start));
+            User user = slackuserDataProvider.getUser(mentionLocation.id);
+            String nameToDisplay = chooseNameToDisplay(user, firstNamesAppearingTwice);
+            stringBuilder.append(nameToDisplay);
+            endOfLastMention = mentionLocation.start + mentionLocation.length;
+        }
+        if (endOfLastMention < slackMessageText.length()) {
+            stringBuilder.append(slackMessageText.substring(endOfLastMention));
+        }
+        return stringBuilder.toString();
+    }
+
+    private Set<String> findFirstNamesAppearingTwice(List<MentionLocation> directMentions) {
+        if (directMentions == null) {
+            return Collections.emptySet();
+        }
+        List<String> usersFirstNames = directMentions
+                .stream()
+                .filter(mentionLocation -> mentionLocation != null && !Strings.isNullOrEmpty(mentionLocation.id))
+                .map(mentionLocation -> slackuserDataProvider.getUser(mentionLocation.id))
+                .filter(user -> !Strings.isNullOrEmpty(user.getProfile().getFirst_name()))
+                .collect(Collectors.toSet())
+                .stream()
+                .map(user -> user.getProfile().getFirst_name())
+                .collect(Collectors.toList());
+
+        Set<String> firstNamesAlreadySeen = new HashSet<>();
+        Set<String> duplicates = new HashSet<>();
+        for(String firstName : usersFirstNames) {
+            if(!firstNamesAlreadySeen.add(firstName)) {
+                duplicates.add(firstName);
+            }
+        }
+        return duplicates;
+    }
+
+    private String chooseNameToDisplay(User user, Set<String> firstNamesAppearingTwice) {
+        String firstName = user.getProfile().getFirst_name();
+        if (!Strings.isNullOrEmpty(firstName) && !firstNamesAppearingTwice.contains(firstName)) {
+            return firstName;
+        }
+        if (!Strings.isNullOrEmpty(user.getProfile().getReal_name())) {
+            return user.getProfile().getReal_name();
+        }
+        return user.getName();
     }
 }
