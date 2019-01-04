@@ -1,3 +1,7 @@
+plugins {
+    id "org.flywaydb.flyway" version "5.2.4"
+}
+
 apply plugin: 'java'
 apply plugin: 'eclipse'
 
@@ -7,12 +11,15 @@ repositories {
     maven { url 'https://jitpack.io' }
 }
 
+ext.buildSrcJars = fileTree("$rootDir/buildSrc/build/libs") { include("*.jar") exclude("*sources.jar") }
 
 dependencies {
+    compile buildSrcJars
     compile 'org.slf4j:slf4j-api:1.7.25'
     compile 'io.dropwizard:dropwizard-core:1.3.0'
     compile 'org.masukomi:aspirin:0.11.01'
     compile 'com.github.allbegray:slack-api:1.7.0.RELEASE'
+    compile 'postgresql:postgresql:9.1-901-1.jdbc4'
     testCompile 'junit:junit:4.12'
 }
 
@@ -25,3 +32,8 @@ task copyToLib(type: Copy) {
 }
 
 stage.dependsOn(copyToLib)
+
+flyway {
+    url = com.github.stakhanov_founder.stakhanov.DatabaseConnectionString.getDatabaseJdbcConnectionString()
+    driver = 'org.postgresql.Driver'
+}
