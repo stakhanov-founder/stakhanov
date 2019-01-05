@@ -18,4 +18,10 @@ public class SlackMessage extends SlackEventData {
 
     @JsonProperty("channel_type")
     public String channelType;
+
+    @JsonProperty("ts")
+    public double timestampId;
+
+    @JsonProperty("thread_ts")
+    public double threadTimestampId;
 }

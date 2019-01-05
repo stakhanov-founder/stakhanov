@@ -1,9 +1,11 @@
 package com.github.stakhanov_founder.stakhanov.email;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -12,13 +14,19 @@ import javax.mail.MessagingException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.stakhanov_founder.stakhanov.dataproviders.SlackThreadMetadataSocket;
 import com.github.stakhanov_founder.stakhanov.model.SlackEventData;
 import com.github.stakhanov_founder.stakhanov.model.SlackMessage;
+import com.github.stakhanov_founder.stakhanov.model.SlackMessageThreadStatus;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
 import com.github.stakhanov_founder.stakhanov.slack.MentionLocation;
 import com.github.stakhanov_founder.stakhanov.slack.SlackHelper;
+import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SlackMessageDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SlackUserDataProvider;
 import com.google.common.base.Strings;
 
@@ -26,14 +34,22 @@ import allbegray.slack.type.User;
 
 class EmailSenderHelper {
 
+    private static final Logger logger = LoggerFactory.getLogger(EmailSenderHelper.class);
+
     private final String userEmailAddress;
     private final String botEmailAddress;
     private final SlackUserDataProvider slackuserDataProvider;
+    private final SlackMessageDataProvider slackMessageDataProvider;
+    private final SlackThreadMetadataSocket slackThreadMetadataSocket;
+    private final SlackHelper slackHelper = new SlackHelper();
 
-    EmailSenderHelper(String userEmailAddress, String botEmailAddress, SlackUserDataProvider slackuserDataProvider) {
+    EmailSenderHelper(String userEmailAddress, String botEmailAddress, SlackUserDataProvider slackuserDataProvider,
+            SlackMessageDataProvider slackMessageDataProvider, SlackThreadMetadataSocket slackThreadMetadataSocket) {
         this.userEmailAddress = userEmailAddress;
         this.botEmailAddress = botEmailAddress;
         this.slackuserDataProvider = slackuserDataProvider;
+        this.slackMessageDataProvider = slackMessageDataProvider;
+        this.slackThreadMetadataSocket = slackThreadMetadataSocket;
     }
 
     void setupMimeMessageToSend(MimeMessage emptyMimeMessage, SlackStandardEvent slackEvent)
@@ -51,15 +67,23 @@ class EmailSenderHelper {
                     senderDisplayName = sender.getName();
                 }
             }
-            List<MentionLocation> directMentions = new SlackHelper().extractDirectMentions(message.text);
+            List<MentionLocation> directMentions = slackHelper.extractDirectMentions(message.text);
             String textWithResolvedMentions = resolveDirectMentions(message.text, directMentions);
+            final SlackMessageThreadStatus messageThreadStatus = getSlackMessageThreadStatus(message);
             if (message.subType == null) {
                 emptyMimeMessage.setFrom(new InternetAddress(
                         addLabelsToEmailAddress(botEmailAddress, "person", sender.getName(), message.senderId),
                         senderDisplayName));
                 emptyMimeMessage.addRecipient(Message.RecipientType.TO, new InternetAddress(userEmailAddress));
-                emptyMimeMessage.setSubject(generateEmailSubjectFromSlackMessage(textWithResolvedMentions));
+                String threadSubject = computeThreadSubjectForEmail(message, messageThreadStatus, textWithResolvedMentions);
+                emptyMimeMessage.setSubject(computeSpecificMessageSubjectForEmail(threadSubject, messageThreadStatus));
                 emptyMimeMessage.setText(textWithResolvedMentions);
+                setMessageIdHeader(emptyMimeMessage, message);
+                if (messageThreadStatus != SlackMessageThreadStatus.THREAD_START) {
+                    emptyMimeMessage.setHeader("In-Reply-To",
+                            computeMessageIdValue(message.channelId, message.threadTimestampId));
+                }
+                saveThreadSubject(message, messageThreadStatus, threadSubject);
             } else {
                 switch (message.subType) {
                 default:
@@ -154,5 +178,88 @@ class EmailSenderHelper {
             return user.getProfile().getReal_name();
         }
         return user.getName();
+    }
+
+    private SlackMessageThreadStatus getSlackMessageThreadStatus(SlackMessage message) {
+        if (!slackHelper.isReply(message)) {
+            return SlackMessageThreadStatus.THREAD_START;
+        }
+        if (slackThreadMetadataSocket.getThreadSubjectForEmail(message.channelId, message.threadTimestampId)
+                .isPresent()) {
+            return SlackMessageThreadStatus.REPLY;
+        }
+        return SlackMessageThreadStatus.REPLY_WITHOUT_THREAD_METADATA;
+    }
+
+    private String computeThreadSubjectForEmail(SlackMessage message, SlackMessageThreadStatus threadStatus,
+            String textWithResolvedMentions) {
+        switch (threadStatus) {
+        case THREAD_START:
+            return generateEmailSubjectFromSlackMessage(textWithResolvedMentions);
+        case REPLY:
+            return slackThreadMetadataSocket.getThreadSubjectForEmail(message.channelId, message.threadTimestampId).get();
+        case REPLY_WITHOUT_THREAD_METADATA:
+            Optional<allbegray.slack.type.Message> threadStarter =
+                slackMessageDataProvider.getMessage(message.channelId, message.threadTimestampId);
+            if (threadStarter.isPresent()) {
+                String threadStarterText = threadStarter.get().getText();
+                List<MentionLocation> threadStarterDirectMentions = slackHelper.extractDirectMentions(threadStarterText);
+                String threadStarterTextWithResolvedMentions = resolveDirectMentions(
+                        threadStarterText, threadStarterDirectMentions);
+                return generateEmailSubjectFromSlackMessage(threadStarterTextWithResolvedMentions);
+            }
+            logger.error("Could not get message that started thread for current message: "
+                    + message.channelId + ", " + message.threadTimestampId);
+            return "";
+        default:
+            throw new IllegalStateException();
+        }
+    }
+
+    private String computeSpecificMessageSubjectForEmail(
+            String threadSubjectForEmail, SlackMessageThreadStatus messageThreadStatus) {
+        if (messageThreadStatus == null) {
+            throw new IllegalArgumentException("Null passed as Slack message thread status");
+        }
+        switch (messageThreadStatus) {
+        case THREAD_START:
+            return threadSubjectForEmail;
+        default:
+            return "Re: " + threadSubjectForEmail;
+        }
+    }
+
+    private void saveThreadSubject(SlackMessage slackMessage, SlackMessageThreadStatus messageThreadStatus, String threadSubject) {
+        try {
+            switch (messageThreadStatus) {
+            case THREAD_START:
+                slackThreadMetadataSocket.setThreadSubjectForEmail(slackMessage.channelId, slackMessage.timestampId, threadSubject);
+                break;
+            case REPLY_WITHOUT_THREAD_METADATA:
+                slackThreadMetadataSocket.setThreadSubjectForEmail(slackMessage.channelId, slackMessage.threadTimestampId, threadSubject);
+                break;
+            default:
+            }
+        }
+        catch (IOException ex) {
+            logger.error("An error occurred while trying to save a thread's subject", ex);
+        }
+    }
+
+    private void setMessageIdHeader(MimeMessage mimeMessage, SlackMessage slackMessage) throws MessagingException {
+        mimeMessage.saveChanges();
+        mimeMessage.setHeader("Message-ID", computeMessageIdValue(slackMessage.channelId, slackMessage.timestampId));
+    }
+
+    private String computeMessageIdValue(String channelId, double timestampId) {
+        long timestampIdMicroseconds = (long)(timestampId * 1_000_000);
+        return "<"
+                + "slack.message."
+                + "defaultworkspace."
+                + channelId + "."
+                + timestampIdMicroseconds
+                + "@"
+                + "stakhanov.stakhanov_founder.github.com"
+                + ">";
     }
 }

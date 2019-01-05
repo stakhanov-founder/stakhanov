@@ -1,5 +1,7 @@
 package com.github.stakhanov_founder.stakhanov;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.LinkedList;
 import java.util.Queue;
 
@@ -10,13 +12,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.stakhanov_founder.stakhanov.dataproviders.SimpleSlackThreadMetadataSocket;
 import com.github.stakhanov_founder.stakhanov.email.EmailSender;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
+import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SimpleSlackMessageDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackUserDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventPayload;
 import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventReceiverApplication;
 
 import allbegray.slack.SlackClientFactory;
+import allbegray.slack.webapi.SlackWebApiClient;
 
 public class Main {
 
@@ -37,6 +42,10 @@ public class Main {
             logger.error("Please set SLACK_TOKEN environment variable");
             System.exit(1);
         }
+        SlackWebApiClient slackWebApiClient = SlackClientFactory.createWebApiClient(slackToken);
+
+        Class.forName("org.postgresql.Driver");
+        Connection databaseConnection = DriverManager.getConnection(DatabaseConnectionString.getDatabaseJdbcConnectionString());
 
         Queue<String> inboxFromTeamSlack = new LinkedList<>();
         Queue<SlackStandardEvent> outboxToPersonalEmail = new LinkedList<>();
@@ -47,7 +56,9 @@ public class Main {
                 outboxToPersonalEmail::poll,
                 userEmailAddress,
                 botEmailAddress,
-                new CachedSlackUserDataProvider(SlackClientFactory.createWebApiClient(slackToken)))
+                new CachedSlackUserDataProvider(slackWebApiClient),
+                new SimpleSlackMessageDataProvider(slackWebApiClient),
+                new SimpleSlackThreadMetadataSocket(databaseConnection))
             .start();
 
         while (true) {
