@@ -16,6 +16,8 @@ import com.github.stakhanov_founder.stakhanov.dataproviders.SimpleSlackThreadMet
 import com.github.stakhanov_founder.stakhanov.email.EmailSender;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SimpleSlackMessageDataProvider;
+import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackChannelDataProvider;
+import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackGroupDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackUserDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventPayload;
 import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventReceiverApplication;
@@ -28,13 +30,18 @@ public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
 	public static void main(String[] args) throws Exception {
-        String userEmailAddress = System.getenv("USER_EMAIL");
+        String mainUserSlackId = System.getenv("USER_SLACK_ID");
+        if (mainUserSlackId == null) {
+            logger.error("Please set USER_SLACK_ID environment variable");
+            System.exit(1);
+        }
+        String mainUserEmailAddress = System.getenv("USER_EMAIL");
         String botEmailAddress = System.getenv("BOT_EMAIL");
         try {
-            InternetAddress.parse(userEmailAddress, true);
+            InternetAddress.parse(mainUserEmailAddress, true);
             InternetAddress.parse(botEmailAddress, true);
         } catch (AddressException | NullPointerException ex) {
-            logger.error("Wrong email address: " + userEmailAddress + " or " + botEmailAddress);
+            logger.error("Wrong email address: " + mainUserEmailAddress + " or " + botEmailAddress);
             System.exit(1);
         }
         String slackToken = System.getenv("SLACK_TOKEN");
@@ -54,10 +61,13 @@ public class Main {
                 "com/github/stakhanov_founder/stakhanov/slack/eventreceiver/configuration.yml");
         new EmailSender(
                 outboxToPersonalEmail::poll,
-                userEmailAddress,
+                mainUserSlackId,
+                mainUserEmailAddress,
                 botEmailAddress,
                 new CachedSlackUserDataProvider(slackWebApiClient),
                 new SimpleSlackMessageDataProvider(slackWebApiClient),
+                new CachedSlackChannelDataProvider(slackWebApiClient),
+                new CachedSlackGroupDataProvider(slackWebApiClient),
                 new SimpleSlackThreadMetadataSocket(databaseConnection))
             .start();
 

@@ -21,6 +21,7 @@ dependencies {
     compile 'com.github.allbegray:slack-api:1.7.0.RELEASE'
     compile 'postgresql:postgresql:9.1-901-1.jdbc4'
     testCompile 'junit:junit:4.12'
+    testCompile 'org.hamcrest:hamcrest:2.1'
 }
 
 task stage(dependsOn: ['build', 'clean'])

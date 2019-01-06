@@ -18,6 +18,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.stakhanov_founder.stakhanov.dataproviders.SlackThreadMetadataSocket;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
+import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SlackChannelDataProvider;
+import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SlackGroupDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SlackMessageDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SlackUserDataProvider;
 
@@ -29,9 +31,10 @@ public class EmailSender extends Thread {
     private final DeliveryManager aspirinDeliveryManager;
     private final EmailSenderHelper helper;
 
-    public EmailSender(Supplier<SlackStandardEvent> emailQueue, String userEmailAddress, String botEmailAddress,
-            SlackUserDataProvider slackUserDataProvider, SlackMessageDataProvider slackMessageDataProvider,
-            SlackThreadMetadataSocket slackThreadMetadataSocket)
+    public EmailSender(Supplier<SlackStandardEvent> emailQueue, String mainUserSlackId, String mainUserEmailAddress,
+            String botEmailAddress, SlackUserDataProvider slackUserDataProvider,
+            SlackMessageDataProvider slackMessageDataProvider, SlackChannelDataProvider slackChannelDataProvider,
+            SlackGroupDataProvider slackGroupDataProvider, SlackThreadMetadataSocket slackThreadMetadataSocket)
             throws NoSuchFieldException, IllegalAccessException {
         this.emailQueue = emailQueue;
 
@@ -39,8 +42,8 @@ public class EmailSender extends Thread {
         deliveryManagerField.setAccessible(true);
         aspirinDeliveryManager = (DeliveryManager)deliveryManagerField.get(null);
 
-        helper = new EmailSenderHelper(userEmailAddress, botEmailAddress, slackUserDataProvider, slackMessageDataProvider,
-                slackThreadMetadataSocket);
+        helper = new EmailSenderHelper(mainUserSlackId, mainUserEmailAddress, botEmailAddress, slackUserDataProvider, slackMessageDataProvider,
+                slackChannelDataProvider, slackGroupDataProvider, slackThreadMetadataSocket);
     }
 
     @Override
