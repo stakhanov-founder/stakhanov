@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.stakhanov_founder.stakhanov.dataproviders.SimpleSlackThreadMetadataSocket;
+import com.github.stakhanov_founder.stakhanov.email.EmailReceiver;
 import com.github.stakhanov_founder.stakhanov.email.EmailSender;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SimpleSlackMessageDataProvider;
@@ -21,6 +22,7 @@ import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackGro
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackUserDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventPayload;
 import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventReceiverApplication;
+import com.google.common.base.Strings;
 
 import allbegray.slack.SlackClientFactory;
 import allbegray.slack.webapi.SlackWebApiClient;
@@ -49,6 +51,11 @@ public class Main {
             logger.error("Please set SLACK_TOKEN environment variable");
             System.exit(1);
         }
+        String botEmailCredentials = System.getenv("BOT_EMAIL_CREDENTIALS");
+        if (Strings.isNullOrEmpty(botEmailCredentials)) {
+            logger.error("Missing credentials for bot email address in environment variable BOT_EMAIL_CREDENTIALS");
+            System.exit(1);
+        }
         SlackWebApiClient slackWebApiClient = SlackClientFactory.createWebApiClient(slackToken);
 
         Class.forName("org.postgresql.Driver");
@@ -59,6 +66,7 @@ public class Main {
 
         new SlackEventReceiverApplication(inboxFromTeamSlack::add).run("server",
                 "com/github/stakhanov_founder/stakhanov/slack/eventreceiver/configuration.yml");
+        new EmailReceiver(botEmailCredentials).start();
         new EmailSender(
                 outboxToPersonalEmail::poll,
                 mainUserSlackId,
