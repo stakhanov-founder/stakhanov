@@ -3,12 +3,14 @@ package com.github.stakhanov_founder.stakhanov.email;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.Arrays;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.stakhanov_founder.stakhanov.email.microsoftsdk.MicrosoftApiAuthenticator;
 import com.github.stakhanov_founder.stakhanov.email.microsoftsdk.MicrosoftEmailMessage;
+import com.github.stakhanov_founder.stakhanov.model.MainControllerAction;
 import com.microsoft.graph.models.extensions.IGraphServiceClient;
 import com.microsoft.graph.models.extensions.Message;
 import com.microsoft.graph.options.QueryOption;
@@ -23,7 +25,8 @@ public class EmailReceiver extends Thread {
     private final EmailReceiverHelper helper;
     private final Message emailMessageToMarkAsRead;
 
-    public EmailReceiver(String credentials) throws UnsupportedEncodingException {
+    public EmailReceiver(String credentials, Consumer<MainControllerAction> mainControllerInbox)
+            throws UnsupportedEncodingException {
         String[] splitCredentials = credentials.split("/");
         if (splitCredentials.length != 4) {
             throw new IllegalArgumentException(
@@ -33,7 +36,7 @@ public class EmailReceiver extends Thread {
                 .builder().authenticationProvider(new MicrosoftApiAuthenticator(splitCredentials[0],
                         splitCredentials[1], splitCredentials[2], URLDecoder.decode(splitCredentials[3], "UTF-8")))
                 .buildClient();
-        helper = new EmailReceiverHelper();
+        helper = new EmailReceiverHelper(mainControllerInbox);
         emailMessageToMarkAsRead = new Message();
         emailMessageToMarkAsRead.isRead = true;
     }

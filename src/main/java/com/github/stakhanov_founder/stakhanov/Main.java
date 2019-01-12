@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.stakhanov_founder.stakhanov.dataproviders.SimpleSlackThreadMetadataSocket;
 import com.github.stakhanov_founder.stakhanov.email.EmailReceiver;
 import com.github.stakhanov_founder.stakhanov.email.EmailSender;
+import com.github.stakhanov_founder.stakhanov.model.MainControllerAction;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SimpleSlackMessageDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackChannelDataProvider;
@@ -63,10 +64,11 @@ public class Main {
 
         Queue<String> inboxFromTeamSlack = new LinkedList<>();
         Queue<SlackStandardEvent> outboxToPersonalEmail = new LinkedList<>();
+        Queue<MainControllerAction> inboxFromPersonalEmail = new LinkedList<>();
 
         new SlackEventReceiverApplication(inboxFromTeamSlack::add).run("server",
                 "com/github/stakhanov_founder/stakhanov/slack/eventreceiver/configuration.yml");
-        new EmailReceiver(botEmailCredentials).start();
+        new EmailReceiver(botEmailCredentials, inboxFromPersonalEmail::add).start();
         new EmailSender(
                 outboxToPersonalEmail::poll,
                 mainUserSlackId,
@@ -80,7 +82,9 @@ public class Main {
             .start();
 
         while (true) {
+            boolean anythingNew = false;
             if (!inboxFromTeamSlack.isEmpty()) {
+                anythingNew = true;
                 String rawEvent = inboxFromTeamSlack.remove();
                 SlackEventPayload eventPayload = new ObjectMapper().readValue(
                         rawEvent,
@@ -90,7 +94,19 @@ public class Main {
                 } else {
                     logger.error("A non standard slack event reached the main loop: " + rawEvent);
                 }
-            } else {
+            }
+            if (!inboxFromPersonalEmail.isEmpty()) {
+                try {
+                    anythingNew = true;
+                    MainControllerAction actionToCarryOut = inboxFromPersonalEmail.peek();
+                    logger.debug("Instruction received for main controller to carry out: " + actionToCarryOut);
+                    inboxFromPersonalEmail.poll();
+                }
+                catch (Exception ex) {
+                    logger.error("Exception occurred while processing instruction from personal email", ex);
+                }
+            }
+            if (!anythingNew) {
                 Thread.sleep(500);
             }
         }
