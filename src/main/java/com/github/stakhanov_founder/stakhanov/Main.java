@@ -68,7 +68,10 @@ public class Main {
 
         new SlackEventReceiverApplication(inboxFromTeamSlack::add).run("server",
                 "com/github/stakhanov_founder/stakhanov/slack/eventreceiver/configuration.yml");
-        new EmailReceiver(botEmailCredentials, inboxFromPersonalEmail::add).start();
+        new EmailReceiver(
+                botEmailCredentials,
+                botEmailAddress,
+                inboxFromPersonalEmail::add).start();
         new EmailSender(
                 outboxToPersonalEmail::poll,
                 mainUserSlackId,

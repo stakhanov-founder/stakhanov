@@ -25,7 +25,7 @@ public class EmailReceiver extends Thread {
     private final EmailReceiverHelper helper;
     private final Message emailMessageToMarkAsRead;
 
-    public EmailReceiver(String credentials, Consumer<MainControllerAction> mainControllerInbox)
+    public EmailReceiver(String credentials, String botEmailAddress, Consumer<MainControllerAction> mainControllerInbox)
             throws UnsupportedEncodingException {
         String[] splitCredentials = credentials.split("/");
         if (splitCredentials.length != 4) {
@@ -36,7 +36,7 @@ public class EmailReceiver extends Thread {
                 .builder().authenticationProvider(new MicrosoftApiAuthenticator(splitCredentials[0],
                         splitCredentials[1], splitCredentials[2], URLDecoder.decode(splitCredentials[3], "UTF-8")))
                 .buildClient();
-        helper = new EmailReceiverHelper(mainControllerInbox);
+        helper = new EmailReceiverHelper(botEmailAddress, mainControllerInbox);
         emailMessageToMarkAsRead = new Message();
         emailMessageToMarkAsRead.isRead = true;
     }
