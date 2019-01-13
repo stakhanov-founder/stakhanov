@@ -36,11 +36,12 @@ class EmailReceiverHelper {
             }
         }
         if (channelTag != null && channelTag.channelId.isPresent()) {
+            ChatPostMessageMethod messageToPost = new ChatPostMessageMethod(
+                    channelTag.channelId.get(),
+                    email.getTextBody());
+            messageToPost.setAs_user(true);
             mainControllerInbox.accept(
-                    new PostSlackMessageMainControllerAction(
-                            new ChatPostMessageMethod(
-                                    channelTag.channelId.get(),
-                                    email.getTextBody())));
+                    new PostSlackMessageMainControllerAction(messageToPost));
         }
     }
 }

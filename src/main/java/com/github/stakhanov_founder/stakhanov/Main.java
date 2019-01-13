@@ -16,8 +16,12 @@ import com.github.stakhanov_founder.stakhanov.dataproviders.SimpleSlackThreadMet
 import com.github.stakhanov_founder.stakhanov.email.EmailReceiver;
 import com.github.stakhanov_founder.stakhanov.email.EmailSender;
 import com.github.stakhanov_founder.stakhanov.model.MainControllerAction;
+import com.github.stakhanov_founder.stakhanov.model.PostSlackMessageMainControllerAction;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SimpleSlackMessageDataProvider;
+import com.github.stakhanov_founder.stakhanov.slack.PostMessageSlackOperation;
+import com.github.stakhanov_founder.stakhanov.slack.SlackOperation;
+import com.github.stakhanov_founder.stakhanov.slack.SlackOperator;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackChannelDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackGroupDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackUserDataProvider;
@@ -65,6 +69,7 @@ public class Main {
         Queue<String> inboxFromTeamSlack = new LinkedList<>();
         Queue<SlackStandardEvent> outboxToPersonalEmail = new LinkedList<>();
         Queue<MainControllerAction> inboxFromPersonalEmail = new LinkedList<>();
+        Queue<SlackOperation> outboxToTeamSlack = new LinkedList<>();
 
         new SlackEventReceiverApplication(inboxFromTeamSlack::add).run("server",
                 "com/github/stakhanov_founder/stakhanov/slack/eventreceiver/configuration.yml");
@@ -82,6 +87,10 @@ public class Main {
                 new CachedSlackChannelDataProvider(slackWebApiClient),
                 new CachedSlackGroupDataProvider(slackWebApiClient),
                 new SimpleSlackThreadMetadataSocket(databaseConnection))
+            .start();
+        new SlackOperator(
+                slackWebApiClient,
+                outboxToTeamSlack::poll)
             .start();
 
         while (true) {
@@ -103,6 +112,11 @@ public class Main {
                     anythingNew = true;
                     MainControllerAction actionToCarryOut = inboxFromPersonalEmail.peek();
                     logger.debug("Instruction received for main controller to carry out: " + actionToCarryOut);
+                    if (actionToCarryOut instanceof PostSlackMessageMainControllerAction) {
+                        PostSlackMessageMainControllerAction postSlackMessageAction
+                            = (PostSlackMessageMainControllerAction) actionToCarryOut;
+                        outboxToTeamSlack.add(new PostMessageSlackOperation(postSlackMessageAction.messageToSend));
+                    }
                     inboxFromPersonalEmail.poll();
                 }
                 catch (Exception ex) {
