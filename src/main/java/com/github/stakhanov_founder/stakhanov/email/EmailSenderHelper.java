@@ -21,6 +21,8 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.stakhanov_founder.stakhanov.dataproviders.SlackThreadMetadataSocket;
+import com.github.stakhanov_founder.stakhanov.email.model.SlackChannelEmailTag;
+import com.github.stakhanov_founder.stakhanov.email.model.SlackUserEmailTag;
 import com.github.stakhanov_founder.stakhanov.model.SlackEventData;
 import com.github.stakhanov_founder.stakhanov.model.SlackMessage;
 import com.github.stakhanov_founder.stakhanov.model.SlackMessageThreadStatus;
@@ -102,13 +104,6 @@ class EmailSenderHelper {
         } else {
             setupMimeMessageToSendForGenericSlackEvent(emptyMimeMessage, eventData);
         }
-    }
-
-    private String addLabelsToEmailAddress(String emailAddress, String... labels) {
-        int indexOfArobasCharacter = emailAddress.indexOf('@');
-        String userName = emailAddress.substring(0, indexOfArobasCharacter);
-        String domain = emailAddress.substring(indexOfArobasCharacter + 1);
-        return userName + '+' + String.join(".", labels) + '@' + domain;
     }
 
     private String generateEmailSubjectFromSlackMessage(String slackMessageText) {
@@ -211,7 +206,9 @@ class EmailSenderHelper {
             }
         }
         return new InternetAddress(
-                addLabelsToEmailAddress(botEmailAddress, "person", person.getName(), person.getId()),
+                EmailTags.addTagToEmail(
+                        botEmailAddress,
+                        new SlackUserEmailTag(Optional.of(person.getName()), Optional.of(person.getId()))),
                 displayName);
     }
 
@@ -304,10 +301,10 @@ class EmailSenderHelper {
             mimeMessage.addRecipient(
                     Message.RecipientType.TO,
                     new InternetAddress(
-                            addLabelsToEmailAddress(botEmailAddress,
-                                    "channel",
-                                    channelName,
-                                    slackMessage.channelId),
+                            EmailTags.addTagToEmail(
+                                    botEmailAddress,
+                                    new SlackChannelEmailTag(
+                                            Optional.of(channelName), Optional.of(slackMessage.channelId))),
                             channelDetails.isPresent() ? "#" + channelName : "Channel " + slackMessage.channelId));
             break;
         case GROUP:
