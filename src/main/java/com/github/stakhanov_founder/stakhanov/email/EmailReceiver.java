@@ -15,6 +15,7 @@ import com.microsoft.graph.logger.ILogger;
 import com.microsoft.graph.logger.LoggerLevel;
 import com.microsoft.graph.models.extensions.IGraphServiceClient;
 import com.microsoft.graph.models.extensions.Message;
+import com.microsoft.graph.options.HeaderOption;
 import com.microsoft.graph.options.QueryOption;
 import com.microsoft.graph.requests.extensions.GraphServiceClient;
 import com.microsoft.graph.requests.extensions.IMessageCollectionPage;
@@ -75,7 +76,9 @@ public class EmailReceiver extends Thread {
                         .messages()
                         .buildRequest(Arrays.asList(
                                 new QueryOption("$filter", "isRead eq false"),
-                                new QueryOption("$orderby", "receivedDateTime asc")))
+                                new QueryOption("$orderby", "receivedDateTime asc"),
+                                new QueryOption("$select", "from,toRecipients,subject,body,uniqueBody"),
+                                new HeaderOption("Prefer", "outlook.body-content-type=\"text\"")))
                         .get();
                 if (messages != null) {
                     for (Message message : messages.getCurrentPage()) {

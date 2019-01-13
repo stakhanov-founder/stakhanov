@@ -36,12 +36,26 @@ class EmailReceiverHelper {
             }
         }
         if (channelTag != null && channelTag.channelId.isPresent()) {
+            String slackMessageBody = extractBodyForSlackMessage(email);
             ChatPostMessageMethod messageToPost = new ChatPostMessageMethod(
                     channelTag.channelId.get(),
-                    email.getTextBody());
+                    slackMessageBody);
             messageToPost.setAs_user(true);
             mainControllerInbox.accept(
                     new PostSlackMessageMainControllerAction(messageToPost));
         }
+    }
+
+    private String extractBodyForSlackMessage(EmailMessage email) {
+        if (email == null) {
+            return "";
+        }
+        if (email.getTextBodyWithoutQuotedText() != null) {
+            return email.getTextBodyWithoutQuotedText();
+        }
+        if (email.getTextBody() != null) {
+            return email.getTextBody();
+        }
+        return "";
     }
 }

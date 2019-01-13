@@ -28,6 +28,7 @@ public class EmailReceiverHelperTest {
                 new InternetAddress("mainuser@mainuserdomain.com"),
                 Arrays.asList(new InternetAddress("bot+channel.mychannel.abcdef@myrobot.com")),
                 "This is my subject",
+                "This is my body\n\nOn blablabla other person wrote:\n\nhi",
                 "This is my body"
                 );
 

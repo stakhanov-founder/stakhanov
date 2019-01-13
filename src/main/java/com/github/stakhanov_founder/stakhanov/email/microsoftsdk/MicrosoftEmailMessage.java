@@ -71,4 +71,9 @@ public class MicrosoftEmailMessage implements EmailMessage {
     public String toString() {
         return "From: " + getSender() + ", subject: " + getSubject();
     }
+
+    @Override
+    public String getTextBodyWithoutQuotedText() {
+        return microsoftMessage.uniqueBody.content;
+    }
 }

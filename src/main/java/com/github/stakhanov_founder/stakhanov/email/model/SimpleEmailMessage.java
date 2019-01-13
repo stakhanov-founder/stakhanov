@@ -12,12 +12,15 @@ public class SimpleEmailMessage implements EmailMessage {
     private final List<InternetAddress> toRecipients;
     private final String subject;
     private final String textBody;
+    private final String textBodyWithoutQuotedText;
 
-    public SimpleEmailMessage(InternetAddress sender, List<InternetAddress> toRecipients, String subject, String textBody) {
+    public SimpleEmailMessage(InternetAddress sender, List<InternetAddress> toRecipients, String subject, String textBody,
+            String textBodyWithoutQuotedText) {
         this.sender = sender;
         this.toRecipients = Collections.unmodifiableList(new ArrayList<>(toRecipients));
         this.subject = subject;
         this.textBody = textBody;
+        this.textBodyWithoutQuotedText = textBodyWithoutQuotedText;
     }
 
     @Override
@@ -38,5 +41,10 @@ public class SimpleEmailMessage implements EmailMessage {
     @Override
     public String getTextBody() {
         return textBody;
+    }
+
+    @Override
+    public String getTextBodyWithoutQuotedText() {
+        return textBodyWithoutQuotedText;
     }
 }

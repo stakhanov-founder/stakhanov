@@ -13,4 +13,6 @@ public interface EmailMessage {
     String getSubject();
 
     String getTextBody();
+
+    String getTextBodyWithoutQuotedText();
 }
