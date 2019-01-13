@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import com.github.stakhanov_founder.stakhanov.email.microsoftsdk.MicrosoftApiAuthenticator;
 import com.github.stakhanov_founder.stakhanov.email.microsoftsdk.MicrosoftEmailMessage;
 import com.github.stakhanov_founder.stakhanov.model.MainControllerAction;
+import com.microsoft.graph.logger.ILogger;
+import com.microsoft.graph.logger.LoggerLevel;
 import com.microsoft.graph.models.extensions.IGraphServiceClient;
 import com.microsoft.graph.models.extensions.Message;
 import com.microsoft.graph.options.QueryOption;
@@ -25,6 +27,27 @@ public class EmailReceiver extends Thread {
     private final EmailReceiverHelper helper;
     private final Message emailMessageToMarkAsRead;
 
+    private final static ILogger microsoftLogger = new ILogger() {
+
+        @Override
+        public void setLoggingLevel(LoggerLevel level) { }
+
+        @Override
+        public LoggerLevel getLoggingLevel() {
+            return logger.isDebugEnabled() ? LoggerLevel.DEBUG : LoggerLevel.ERROR;
+        }
+
+        @Override
+        public void logDebug(String message) {
+            logger.debug(message);
+        }
+
+        @Override
+        public void logError(String message, Throwable throwable) {
+            logger.error(message, throwable);
+        }
+    };
+
     public EmailReceiver(String credentials, String botEmailAddress, Consumer<MainControllerAction> mainControllerInbox)
             throws UnsupportedEncodingException {
         String[] splitCredentials = credentials.split("/");
@@ -35,6 +58,7 @@ public class EmailReceiver extends Thread {
         microsoftGraphClient = GraphServiceClient
                 .builder().authenticationProvider(new MicrosoftApiAuthenticator(splitCredentials[0],
                         splitCredentials[1], splitCredentials[2], URLDecoder.decode(splitCredentials[3], "UTF-8")))
+                .logger(microsoftLogger)
                 .buildClient();
         helper = new EmailReceiverHelper(botEmailAddress, mainControllerInbox);
         emailMessageToMarkAsRead = new Message();
