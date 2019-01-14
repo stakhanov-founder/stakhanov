@@ -91,7 +91,7 @@ class EmailSenderHelper {
                 setMessageIdHeader(emptyMimeMessage, message);
                 if (messageThreadStatus != SlackMessageThreadStatus.THREAD_START) {
                     emptyMimeMessage.setHeader("In-Reply-To",
-                            computeMessageIdValue(message.channelId, message.threadTimestampId));
+                            EmailMessageIds.composeEmailMessageId(message.channelId, message.threadTimestampId));
                 }
                 addSlackMessageMetadataAsRecipients(message, emptyMimeMessage);
                 saveThreadSubject(message, messageThreadStatus, threadSubject);
@@ -269,19 +269,7 @@ class EmailSenderHelper {
 
     private void setMessageIdHeader(MimeMessage mimeMessage, SlackMessage slackMessage) throws MessagingException {
         mimeMessage.saveChanges();
-        mimeMessage.setHeader("Message-ID", computeMessageIdValue(slackMessage.channelId, slackMessage.timestampId));
-    }
-
-    private String computeMessageIdValue(String channelId, double timestampId) {
-        long timestampIdMicroseconds = (long)(timestampId * 1_000_000);
-        return "<"
-                + "slack.message."
-                + "defaultworkspace."
-                + channelId + "."
-                + timestampIdMicroseconds
-                + "@"
-                + "stakhanov.stakhanov_founder.github.com"
-                + ">";
+        mimeMessage.setHeader("Message-ID", EmailMessageIds.composeEmailMessageId(slackMessage));
     }
 
     private void addSlackMessageMetadataAsRecipients(SlackMessage slackMessage, MimeMessage mimeMessage)
