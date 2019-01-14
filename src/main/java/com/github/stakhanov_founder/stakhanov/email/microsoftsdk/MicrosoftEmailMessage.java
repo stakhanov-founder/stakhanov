@@ -3,6 +3,7 @@ package com.github.stakhanov_founder.stakhanov.email.microsoftsdk;
 import java.io.UnsupportedEncodingException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javax.mail.internet.InternetAddress;
@@ -75,5 +76,15 @@ public class MicrosoftEmailMessage implements EmailMessage {
     @Override
     public String getTextBodyWithoutQuotedText() {
         return microsoftMessage.uniqueBody.content;
+    }
+
+    @Override
+    public Optional<String> getInReplyToHeader() {
+        return microsoftMessage
+                .internetMessageHeaders
+                .stream()
+                .filter(header -> "In-Reply-To".equals(header.name))
+                .map(header -> header.value)
+                .findFirst();
     }
 }

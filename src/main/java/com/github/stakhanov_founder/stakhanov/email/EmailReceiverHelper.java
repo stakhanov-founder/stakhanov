@@ -1,6 +1,7 @@
 package com.github.stakhanov_founder.stakhanov.email;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -11,6 +12,7 @@ import com.github.stakhanov_founder.stakhanov.email.model.EmailTag;
 import com.github.stakhanov_founder.stakhanov.email.model.SlackChannelEmailTag;
 import com.github.stakhanov_founder.stakhanov.model.MainControllerAction;
 import com.github.stakhanov_founder.stakhanov.model.PostSlackMessageMainControllerAction;
+import com.github.stakhanov_founder.stakhanov.slack.SlackMessageIdentifier;
 
 import allbegray.slack.webapi.method.chats.ChatPostMessageMethod;
 
@@ -41,6 +43,17 @@ class EmailReceiverHelper {
                     channelTag.channelId.get(),
                     slackMessageBody);
             messageToPost.setAs_user(true);
+            Optional<String> inReplyToHeader = email.getInReplyToHeader();
+            if (inReplyToHeader.isPresent()) {
+                Optional<SlackMessageIdentifier> lastSlackMessageInThread
+                    = EmailMessageIds.extractMessageCoordinatesFromEmailMessageId(inReplyToHeader.get());
+                if (lastSlackMessageInThread.isPresent()) {
+                    double threadTimestampId = lastSlackMessageInThread
+                            .get().threadTimestampId
+                            .orElse(lastSlackMessageInThread.get().timestampId);
+                    messageToPost.setThread_ts(String.format("%.6f", threadTimestampId));
+                }
+            }
             mainControllerInbox.accept(
                     new PostSlackMessageMainControllerAction(messageToPost));
         }

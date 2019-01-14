@@ -77,7 +77,7 @@ public class EmailReceiver extends Thread {
                         .buildRequest(Arrays.asList(
                                 new QueryOption("$filter", "isRead eq false"),
                                 new QueryOption("$orderby", "receivedDateTime asc"),
-                                new QueryOption("$select", "from,toRecipients,subject,body,uniqueBody"),
+                                new QueryOption("$select", "from,toRecipients,subject,body,uniqueBody,internetMessageHeaders"),
                                 new HeaderOption("Prefer", "outlook.body-content-type=\"text\"")))
                         .get();
                 if (messages != null) {
