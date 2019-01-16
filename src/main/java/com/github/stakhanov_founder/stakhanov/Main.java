@@ -11,21 +11,17 @@ import javax.mail.internet.InternetAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.stakhanov_founder.stakhanov.dataproviders.SimpleSlackThreadMetadataSocket;
 import com.github.stakhanov_founder.stakhanov.email.EmailReceiver;
 import com.github.stakhanov_founder.stakhanov.email.EmailSender;
 import com.github.stakhanov_founder.stakhanov.model.MainControllerAction;
-import com.github.stakhanov_founder.stakhanov.model.PostSlackMessageMainControllerAction;
 import com.github.stakhanov_founder.stakhanov.model.SlackStandardEvent;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.SimpleSlackMessageDataProvider;
-import com.github.stakhanov_founder.stakhanov.slack.PostMessageSlackOperation;
 import com.github.stakhanov_founder.stakhanov.slack.SlackOperation;
 import com.github.stakhanov_founder.stakhanov.slack.SlackOperator;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackChannelDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackGroupDataProvider;
 import com.github.stakhanov_founder.stakhanov.slack.dataproviders.CachedSlackUserDataProvider;
-import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventPayload;
 import com.github.stakhanov_founder.stakhanov.slack.eventreceiver.SlackEventReceiverApplication;
 import com.google.common.base.Strings;
 
@@ -93,37 +89,12 @@ public class Main {
                 outboxToTeamSlack::poll)
             .start();
 
+        MainControllerHelper mainControllerHelper = new MainControllerHelper(inboxFromTeamSlack, inboxFromPersonalEmail,
+                outboxToPersonalEmail, outboxToTeamSlack);
+
         while (true) {
-            boolean anythingNew = false;
-            if (!inboxFromTeamSlack.isEmpty()) {
-                anythingNew = true;
-                String rawEvent = inboxFromTeamSlack.remove();
-                SlackEventPayload eventPayload = new ObjectMapper().readValue(
-                        rawEvent,
-                        SlackEventPayload.class);
-                if (eventPayload instanceof SlackStandardEvent) {
-                    outboxToPersonalEmail.add((SlackStandardEvent)eventPayload);
-                } else {
-                    logger.error("A non standard slack event reached the main loop: " + rawEvent);
-                }
-            }
-            if (!inboxFromPersonalEmail.isEmpty()) {
-                try {
-                    anythingNew = true;
-                    MainControllerAction actionToCarryOut = inboxFromPersonalEmail.peek();
-                    logger.debug("Instruction received for main controller to carry out: " + actionToCarryOut);
-                    if (actionToCarryOut instanceof PostSlackMessageMainControllerAction) {
-                        PostSlackMessageMainControllerAction postSlackMessageAction
-                            = (PostSlackMessageMainControllerAction) actionToCarryOut;
-                        outboxToTeamSlack.add(new PostMessageSlackOperation(postSlackMessageAction.messageToSend));
-                    }
-                    inboxFromPersonalEmail.poll();
-                }
-                catch (Exception ex) {
-                    logger.error("Exception occurred while processing instruction from personal email", ex);
-                }
-            }
-            if (!anythingNew) {
+            mainControllerHelper.processInboxes();
+            if (mainControllerHelper.allDone()) {
                 Thread.sleep(500);
             }
         }
