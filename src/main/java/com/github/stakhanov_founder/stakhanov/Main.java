@@ -89,8 +89,8 @@ public class Main {
                 outboxToTeamSlack::poll)
             .start();
 
-        MainControllerHelper mainControllerHelper = new MainControllerHelper(inboxFromTeamSlack, inboxFromPersonalEmail,
-                outboxToPersonalEmail, outboxToTeamSlack);
+        MainControllerHelper mainControllerHelper = new MainControllerHelper(mainUserSlackId, inboxFromTeamSlack,
+                inboxFromPersonalEmail, outboxToPersonalEmail, outboxToTeamSlack);
 
         while (true) {
             mainControllerHelper.processInboxes();
