@@ -22,6 +22,7 @@ class EmailReceiverHelper {
 
     private final String botEmailAddress;
     private final Consumer<MainControllerAction> mainControllerInbox;
+    private final EmailHelper helper = new EmailHelper();
 
     EmailReceiverHelper(String botEmailAddress, Consumer<MainControllerAction> mainControllerInbox) {
         this.botEmailAddress = botEmailAddress;
@@ -30,6 +31,9 @@ class EmailReceiverHelper {
 
     void processEmail(EmailMessage email) {
         logger.debug("Email received:" + email);
+        if (helper.isSameEmailAccount(email.getSender().getAddress(), botEmailAddress)) {
+            return;
+        }
         List<EmailTag> tags = EmailTags.extractAllTagsFromEmailRecipients(email, botEmailAddress);
         SlackChannelEmailTag channelTag = null;
         for (EmailTag tag : tags) {

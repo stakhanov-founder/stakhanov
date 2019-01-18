@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import javax.mail.internet.InternetAddress;
+
+import com.github.stakhanov_founder.stakhanov.email.model.EmailAddressComponents;
 import com.github.stakhanov_founder.stakhanov.email.model.EmailMessage;
 import com.github.stakhanov_founder.stakhanov.email.model.EmailTag;
 import com.github.stakhanov_founder.stakhanov.email.model.SlackChannelEmailTag;
@@ -14,12 +17,14 @@ class EmailTags {
     private static final String SLACK_CHANNEL_TAG_TYPE = "channel";
     private static final String SLACK_USER_TAG_TYPE = "person";
 
+    private static final EmailHelper helper = new EmailHelper();
+
     static String addTagToEmail(String emailAddress, EmailTag tag) {
-        int indexOfArobasCharacter = emailAddress.indexOf('@');
-        String userName = emailAddress.substring(0, indexOfArobasCharacter);
-        String domain = emailAddress.substring(indexOfArobasCharacter + 1);
+        EmailAddressComponents emailAddressComponents
+            = helper.decomposeEmailAddress(emailAddress);
         String tagAsString = getTagAsString(tag);
-        return userName + '+' + tagAsString + '@' + domain;
+        return emailAddressComponents.userName + '+' + tagAsString
+                + '@' + emailAddressComponents.domain;
     }
 
     private static String getTagAsString(EmailTag tag) {
@@ -42,31 +47,18 @@ class EmailTags {
     }
 
     static List<EmailTag> extractAllTagsFromEmailRecipients(EmailMessage email, String botEmailAddress) {
+        EmailAddressComponents botEmailAddressComponents = helper.decomposeEmailAddress(botEmailAddress);
         return email.getToRecipients()
                 .stream()
-                .map(address -> extractEmailTag(address.getAddress(), botEmailAddress))
+                .map(InternetAddress::getAddress)
+                .map(helper::decomposeEmailAddress)
+                .filter(emailAddressComponents -> helper.isSameEmailAccount(
+                        emailAddressComponents, botEmailAddressComponents))
+                .map(emailAddressComponents -> emailAddressComponents.tag)
+                .map(EmailTags::parseEmailTag)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toList());
-    }
-
-    private static Optional<EmailTag> extractEmailTag(String emailAddress, String emailAddressWithoutTag) {
-        if (emailAddress == null) {
-            return Optional.empty();
-        }
-        if (emailAddressWithoutTag == null) {
-            throw new IllegalArgumentException("Null passed as email address without tag");
-        }
-        int indexOfArobas = emailAddressWithoutTag.indexOf('@');
-        if (indexOfArobas < 0) {
-            throw new IllegalArgumentException("Invalid email address without tag: " + emailAddressWithoutTag);
-        }
-        String username = emailAddressWithoutTag.substring(0, indexOfArobas);
-        int indexOfArobasInActualEmailAddress = emailAddress.indexOf('@');
-        if (indexOfArobasInActualEmailAddress < 0 || !emailAddress.startsWith(username)) {
-            return Optional.empty();
-        }
-        return parseEmailTag(emailAddress.substring(username.length() + 1, indexOfArobasInActualEmailAddress));
     }
 
     private static Optional<EmailTag> parseEmailTag(String input) {
