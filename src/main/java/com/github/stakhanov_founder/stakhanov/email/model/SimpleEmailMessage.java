@@ -11,15 +11,18 @@ public class SimpleEmailMessage implements EmailMessage {
 
     private final InternetAddress sender;
     private final List<InternetAddress> toRecipients;
+    private final List<InternetAddress> ccRecipients;
     private final String subject;
     private final String textBody;
     private final String textBodyWithoutQuotedText;
     private final Optional<String> inReplyToHeader;
 
-    public SimpleEmailMessage(InternetAddress sender, List<InternetAddress> toRecipients, String subject, String textBody,
+    public SimpleEmailMessage(InternetAddress sender, List<InternetAddress> toRecipients,
+            List<InternetAddress> ccRecipients, String subject, String textBody,
             String textBodyWithoutQuotedText, Optional<String> inReplyToHeader) {
         this.sender = sender;
         this.toRecipients = Collections.unmodifiableList(new ArrayList<>(toRecipients));
+        this.ccRecipients = ccRecipients;
         this.subject = subject;
         this.textBody = textBody;
         this.textBodyWithoutQuotedText = textBodyWithoutQuotedText;
@@ -34,6 +37,11 @@ public class SimpleEmailMessage implements EmailMessage {
     @Override
     public List<InternetAddress> getToRecipients() {
         return toRecipients;
+    }
+
+    @Override
+    public List<InternetAddress> getCcRecipients() {
+        return ccRecipients;
     }
 
     @Override

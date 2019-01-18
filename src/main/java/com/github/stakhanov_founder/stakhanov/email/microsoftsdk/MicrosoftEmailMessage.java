@@ -36,10 +36,20 @@ public class MicrosoftEmailMessage implements EmailMessage {
 
     @Override
     public List<InternetAddress> getToRecipients() {
-        if (microsoftMessage.toRecipients == null) {
+        return standardInternetAddressListFromMicrosoftList(microsoftMessage.toRecipients);
+    }
+
+    @Override
+    public List<InternetAddress> getCcRecipients() {
+        return standardInternetAddressListFromMicrosoftList(microsoftMessage.ccRecipients);
+    }
+
+    private List<InternetAddress> standardInternetAddressListFromMicrosoftList(
+            List<Recipient> microsoftList) {
+        if (microsoftList == null) {
             return Collections.emptyList();
         }
-        return microsoftMessage.toRecipients
+        return microsoftList
                 .stream()
                 .map(this::addressFromMicrosoftRecipient)
                 .collect(Collectors.toList());

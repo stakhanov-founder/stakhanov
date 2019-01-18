@@ -29,6 +29,7 @@ public class EmailReceiverHelperTest {
         EmailMessage incomingEmail = new SimpleEmailMessage(
                 new InternetAddress("mainuser@mainuserdomain.com"),
                 Arrays.asList(new InternetAddress("bot+channel.mychannel.abcdef@myrobot.com")),
+                Collections.emptyList(),
                 "This is my subject",
                 "This is my body\n\nOn blablabla other person wrote:\n\nhi",
                 "This is my body",
@@ -50,6 +51,7 @@ public class EmailReceiverHelperTest {
         EmailMessage incomingEmail = new SimpleEmailMessage(
                 new InternetAddress("mainuser@mainuserdomain.com"),
                 Arrays.asList(new InternetAddress("bot+channel.mychannel.abcdef@myrobot.com")),
+                Collections.emptyList(),
                 "This is my subject",
                 "This is my body\n\nOn blablabla other person wrote:\n\nhi",
                 "This is my body",
@@ -70,6 +72,7 @@ public class EmailReceiverHelperTest {
         EmailMessage incomingEmail = new SimpleEmailMessage(
                 new InternetAddress("mainuser@mainuserdomain.com"),
                 Arrays.asList(new InternetAddress("bot+channel.mychannel.abcdef@myrobot.com")),
+                Collections.emptyList(),
                 "This is my subject",
                 "This is my body\n\nOn blablabla other person wrote:\n\nhi",
                 "This is my body",
@@ -92,6 +95,7 @@ public class EmailReceiverHelperTest {
         EmailMessage incomingEmail = new SimpleEmailMessage(
                 new InternetAddress("bot+whatever@myrobot.com"),
                 Arrays.asList(new InternetAddress("bot+channel.mychannel.abcdef@myrobot.com")),
+                Collections.emptyList(),
                 "This is my subject",
                 "This is my body\n\nOn blablabla other person wrote:\n\nhi",
                 "This is my body",
@@ -102,6 +106,28 @@ public class EmailReceiverHelperTest {
 
         assertEquals(
                 Collections.emptyList(),
+                queue);
+    }
+
+    @Test
+    public void testProcessEmail_channelInCc_forwardToRightChannel() throws AddressException {
+        Queue<MainControllerAction> queue = new LinkedList<>();
+        EmailReceiverHelper helper = new EmailReceiverHelper("bot@myrobot.com", queue::add);
+        EmailMessage incomingEmail = new SimpleEmailMessage(
+                new InternetAddress("mainuser@mainuserdomain.com"),
+                Arrays.asList(new InternetAddress("bot+person.john.doe.ghijk@myrobot.com")),
+                Arrays.asList(new InternetAddress("bot+channel.mychannel.abcdef@myrobot.com")),
+                "This is my subject",
+                "This is my body\n\nOn blablabla other person wrote:\n\nhi",
+                "This is my body",
+                Optional.empty()
+                );
+
+        helper.processEmail(incomingEmail);
+
+        assertEquals(
+                Arrays.asList(
+                        new PostSlackMessageMainControllerAction(new ChatPostMessageMethod("abcdef", "This is my body"))),
                 queue);
     }
 }

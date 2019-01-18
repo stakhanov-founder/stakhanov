@@ -3,6 +3,7 @@ package com.github.stakhanov_founder.stakhanov.email;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.mail.internet.InternetAddress;
 
@@ -48,8 +49,7 @@ class EmailTags {
 
     static List<EmailTag> extractAllTagsFromEmailRecipients(EmailMessage email, String botEmailAddress) {
         EmailAddressComponents botEmailAddressComponents = helper.decomposeEmailAddress(botEmailAddress);
-        return email.getToRecipients()
-                .stream()
+        return Stream.concat(email.getToRecipients().stream(), email.getCcRecipients().stream())
                 .map(InternetAddress::getAddress)
                 .map(helper::decomposeEmailAddress)
                 .filter(emailAddressComponents -> helper.isSameEmailAccount(

@@ -11,6 +11,8 @@ public interface EmailMessage {
 
     List<InternetAddress> getToRecipients();
 
+    List<InternetAddress> getCcRecipients();
+
     String getSubject();
 
     String getTextBody();
