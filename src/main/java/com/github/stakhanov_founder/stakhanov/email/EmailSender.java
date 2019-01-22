@@ -48,6 +48,7 @@ public class EmailSender extends Thread {
 
     @Override
     public void run() {
+        System.setProperty("mail.smtp.starttls.enable", "true");
         while (true) {
             SlackStandardEvent slackEvent = emailQueue.get();
             try {
